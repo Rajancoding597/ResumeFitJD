@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Tailor</title>
+    <link rel="stylesheet" href="/styles.css?v=20260331e">
+</head>
+<body data-coach-enabled="false">
+<header class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">
+            <div class="brand-mark" aria-hidden="true"></div>
+            <div class="brand-text">
+                <strong>AI Resume Tailor</strong>
+                <span>Input -&gt; Analyze -&gt; Review -&gt; Export</span>
+            </div>
+        </div>
+
+        <div class="topbar-controls">
+            <div class="segmented" role="group" aria-label="Input mode">
+                <label class="segmented-item">
+                    <input type="radio" name="inputMode" value="latex">
+                    <span>LaTeX</span>
+                </label>
+                <label class="segmented-item">
+                    <input type="radio" name="inputMode" value="upload" checked>
+                    <span>Upload</span>
+                </label>
+            </div>
+
+            <button id="tailorButton" type="button" class="primary">Tailor</button>
+            <button id="copyOutputButton" type="button" class="secondary">Copy</button>
+
+            <div id="statusPill" class="status-pill" role="status" aria-live="polite">
+                <span class="dot" aria-hidden="true"></span>
+                <span id="statusLabel">Ready</span>
+                <span id="statusTime" class="time"></span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="shell">
+    <section class="hero">
+        <p class="eyebrow">Truthful Resume Tailoring</p>
+        <h1>Make your bullets fit the job. Keep the facts.</h1>
+        <p class="intro">
+            This demo rewrites bullet content only and shows exactly what changed. Nothing is stored.
+        </p>
+    </section>
+
+    <nav class="mobile-primary-tabs" aria-label="Primary sections">
+        <button type="button" class="tab active" data-primary-tab="inputs">Inputs</button>
+        <button type="button" class="tab" data-primary-tab="results">Results</button>
+    </nav>
+
+    <section class="workspace">
+        <section id="inputsColumn" class="panel inputs-column">
+            <div class="panel-head">
+                <h2>Inputs</h2>
+                <p>Upload your resume first, then paste the job description.</p>
+            </div>
+
+            <div id="uploadInputBlock" class="block">
+                <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload resume file">
+                    <input id="resumeFile" type="file" accept=".pdf,image/*" class="file-input" />
+                    <div class="dropzone-body">
+                        <p><strong>Drop your resume PDF/image</strong> or click to browse.</p>
+                        <p class="muted">Supported: PDF, PNG, JPG, WEBP.</p>
+                    </div>
+                    <div id="fileSummary" class="file-summary" style="display:none;"></div>
+                </div>
+                <button id="removeFileButton" type="button" class="tertiary" style="display:none;">Remove file</button>
+            </div>
+
+            <div id="latexInputBlock" class="block" style="display:none;">
+                <label class="field">
+                    <span>Resume LaTeX</span>
+                    <textarea id="resumeLatex" placeholder="\\begin{itemize}
+\\item Built internal dashboards for engineering metrics.
+\\item Automated recurring reports using Python and SQL.
+\\end{itemize}"></textarea>
+                </label>
+            </div>
+
+            <label class="field api-key-field">
+                <span>Your Gemini API Key</span>
+                <div class="api-key-input-row">
+                    <input id="geminiApiKey" type="password" placeholder="Paste your Gemini API key for this session">
+                    <button id="toggleApiKeyVisibility" type="button" class="secondary">Show</button>
+                    <button id="clearApiKeyButton" type="button" class="tertiary">Clear</button>
+                </div>
+                <p id="apiKeyHint" class="status-text">Create your own Gemini API key in Google AI Studio. Google offers a free tier, limits may apply.</p>
+                <details class="api-key-help">
+                    <summary>How to get a Gemini API key</summary>
+                    <div class="api-key-help-body">
+                        <ol>
+                            <li>Open Google AI Studio.</li>
+                            <li>Sign in and create an API key.</li>
+                            <li>Paste the key here to run AI actions in this app.</li>
+                        </ol>
+                        <p>Your key stays in this browser session only.</p>
+                        <p>This app asks for your own key so hosted usage does not consume the site owner's quota.</p>
+                        <a class="api-key-link" href="https://aistudio.google.com/app/api-keys" target="_blank" rel="noopener noreferrer">Open Google AI Studio API keys</a>
+                    </div>
+                </details>
+            </label>
+
+            <label class="field">
+                <span>Job Description</span>
+                <textarea id="jobDescription" placeholder="Paste the job description here..."></textarea>
+            </label>
+
+            <p class="truth-note">Truthfulness rules: do not add skills or metrics you cannot support.</p>
+
+            <div class="row">
+                <button id="clearInputsButton" type="button" class="tertiary">Clear inputs</button>
+                <p id="helperText" class="status-text">Tip: Upload mode is best if you only have a PDF.</p>
+            </div>
+        </section>
+
+        <section id="resultsColumn" class="panel results-column">
+            <div class="panel-head">
+                <h2>Results</h2>
+                <p>Review bullets first, then inspect insights, then export.</p>
+            </div>
+
+            <section id="summaryStrip" class="summary-strip" style="display:none;">
+                <div class="summary-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Bullets</span>
+                        <strong id="summaryBullets">0</strong>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Rejected</span>
+                        <strong id="summaryRejected">0</strong>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Coverage</span>
+                        <strong id="summaryCoverage">0%</strong>
+                    </div>
+                    <div class="metric" id="summaryAtsWrap">
+                        <span class="metric-label">ATS</span>
+                        <strong id="summaryAts">0</strong>
+                    </div>
+                    <button id="summaryWarningsButton" type="button" class="metric metric-button">
+                        <span class="metric-label">Warnings</span>
+                        <strong id="summaryWarnings">0</strong>
+                    </button>
+                </div>
+                <div class="summary-actions">
+                    <button id="summaryAcceptSafe" type="button" class="secondary">Accept all safe</button>
+                    <button id="summaryShowRejected" type="button" class="secondary">Show rejected</button>
+                    <button id="summaryClearFilters" type="button" class="tertiary">Clear filters</button>
+                </div>
+            </section>
+
+            <nav id="resultsTabs" class="results-tabs" role="tablist" aria-label="Results tabs">
+                <button type="button" class="tab-btn active" data-tab="review" role="tab" aria-selected="true">Review</button>
+                <button type="button" class="tab-btn" data-tab="insights" role="tab" aria-selected="false">Insights</button>
+                <button type="button" class="tab-btn" data-tab="export" role="tab" aria-selected="false">Export</button>
+            </nav>
+
+            <section id="tabReview" class="tab-panel" data-tab-panel="review">
+                <div class="review-toolbar">
+                    <div class="search">
+                        <input id="reviewSearch" type="search" placeholder="Search bullets or keywords..." aria-label="Search bullets">
+                    </div>
+                    <div class="chips-row" id="pinnedKeywords"></div>
+                    <div class="toolbar-row">
+                        <button id="bulkAcceptSafe" type="button" class="secondary">Accept all safe</button>
+                        <button id="bulkRejectAll" type="button" class="secondary">Reject all</button>
+                        <button id="bulkResetEdits" type="button" class="secondary">Reset edits</button>
+                    </div>
+                    <div class="toolbar-row">
+                        <label class="toggle">
+                            <input id="filterRejected" type="checkbox">
+                            <span>Only rejected</span>
+                        </label>
+                        <label class="toggle">
+                            <input id="filterChanged" type="checkbox">
+                            <span>Only changed</span>
+                        </label>
+                        <button id="clearFilters" type="button" class="tertiary">Clear filters</button>
+                    </div>
+                </div>
+
+                <div id="changesContainer" class="review-list">
+                    <article class="empty">
+                        <h3>No results yet</h3>
+                        <p>Run Tailor to see bullet rewrites, keyword coverage, and ATS insights.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="tabInsights" class="tab-panel" data-tab-panel="insights" style="display:none;">
+                <section class="mini-panel ats-panel">
+                    <header class="mini-head">
+                        <h3>ATS Score</h3>
+                        <p class="muted">ATS-style estimate + heatmap (heuristic, keyword-based).</p>
+                    </header>
+                    <div class="meter">
+                        <div class="meter-label">
+                            <span>Score</span>
+                            <strong id="atsScore">0</strong>
+                        </div>
+                        <div class="meter-track" aria-hidden="true">
+                            <div id="atsBar" class="meter-fill"></div>
+                        </div>
+                        <p id="atsNote" class="status-text">Upload mode will populate ATS insights.</p>
+                    </div>
+                    <div class="split">
+                        <div>
+                            <h4>Must-have</h4>
+                            <ul id="mustHaveKeywords" class="keyword-list"></ul>
+                        </div>
+                        <div>
+                            <h4>Nice-to-have</h4>
+                            <ul id="niceToHaveKeywords" class="keyword-list"></ul>
+                        </div>
+                    </div>
+                    <div class="mini-subhead">
+                        <h4>Heatmap</h4>
+                        <p class="muted">Click a keyword to filter bullets.</p>
+                    </div>
+                    <div id="bulletHeatmap" class="heatmap"></div>
+                </section>
+
+                <section class="mini-panel keyword-panel">
+                    <header class="mini-head">
+                        <h3>Keyword Coverage</h3>
+                        <p class="muted">Hints, not instructions to invent skills.</p>
+                    </header>
+                    <div class="meter">
+                        <div class="meter-label">
+                            <span>Coverage</span>
+                            <strong id="coveragePercent">0%</strong>
+                        </div>
+                        <div class="meter-track" aria-hidden="true">
+                            <div id="coverageBar" class="meter-fill"></div>
+                        </div>
+                        <div class="row">
+                            <button id="copyMissingKeywords" type="button" class="secondary">Copy missing</button>
+                            <button id="pinMissingKeywords" type="button" class="secondary">Pin missing</button>
+                        </div>
+                        <p id="insightsNote" class="status-text">Run tailor to populate insights.</p>
+                    </div>
+                    <div class="split">
+                        <div>
+                            <h4>Matched</h4>
+                            <ul id="matchedKeywords" class="keyword-list"></ul>
+                        </div>
+                        <div>
+                            <h4>Missing</h4>
+                            <ul id="missingKeywords" class="keyword-list"></ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="mini-panel suggestions-panel">
+                    <header class="mini-head">
+                        <h3>Suggestions</h3>
+                        <p class="muted">High-impact improvements beyond rewrites.</p>
+                    </header>
+                    <ul id="generalSuggestions" class="keyword-list"></ul>
+                </section>
+            </section>
+
+            <section id="tabExport" class="tab-panel" data-tab-panel="export" style="display:none;">
+                <section class="mini-panel export-panel">
+                    <header class="mini-head">
+                        <h3 id="outputTitle">Updated LaTeX</h3>
+                        <p id="exportHint" class="muted">Apply accepted bullets to update LaTeX safely.</p>
+                    </header>
+                    <textarea id="updatedLatex" readonly placeholder="Your output will appear here..."></textarea>
+                    <div id="exportBulletsList" class="export-bullets" style="display:none;"></div>
+                    <div class="row">
+                        <button id="applyChangesButton" type="button" class="secondary">Apply to LaTeX</button>
+                        <button id="copyButton" type="button" class="secondary">Copy output</button>
+                    </div>
+                    <p id="applyStatus" class="status-text">Tip: accept/edit bullets in Review, then apply.</p>
+                    <p class="export-reminder">Reminder: do not add skills you cannot support.</p>
+                </section>
+
+                <section class="mini-panel warnings-panel">
+                    <header class="mini-head">
+                        <h3>Warnings</h3>
+                        <p class="muted">Validation errors and safety fallbacks.</p>
+                    </header>
+                    <ul id="warnings" class="warnings"></ul>
+                </section>
+            </section>
+        </section>
+    </section>
+</main>
+
+<div class="bottom-bar" aria-label="Quick actions">
+    <button id="bottomTailorButton" type="button" class="primary">Tailor</button>
+    <button id="bottomApplyButton" type="button" class="secondary">Apply</button>
+</div>
+
+<div id="toastHost" class="toast-host" aria-live="polite" aria-relevant="additions"></div>
+
+<script src="/app.js?v=20260331e"></script>
+</body>
+</html>

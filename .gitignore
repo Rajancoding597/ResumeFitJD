@@ -1,0 +1,12 @@
+.gradle/
+build/
+out/
+target/
+.idea/
+*.iml
+.settings/
+bin/
+.classpath
+.factorypath
+tools/
+.env
