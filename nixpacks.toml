@@ -1,4 +1,7 @@
-providers = []
+providers = ["java"]
+
+[variables]
+NIXPACKS_JDK_VERSION = "21"
 
 [phases.setup]
 nixPkgs = ["jdk21", "maven"]
@@ -7,4 +10,4 @@ nixPkgs = ["jdk21", "maven"]
 cmds = ["mvn clean package -Dmaven.test.skip=true"]
 
 [start]
-cmd = "java -Dserver.port=$PORT $JAVA_OPTS -jar target/*jar"
+cmd = "java -jar target/resume-tailor-0.0.1-SNAPSHOT.jar"
